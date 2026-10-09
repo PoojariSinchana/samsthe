@@ -28,7 +28,7 @@ import NotificationsSection from "../../shared/pages/NotificationsSection";
 import TasksSection from "../../shared/pages/TasksSection";
 import CalculatorSection from "../../shared/pages/CalculatorSection";
 import SubscriptionSection from "../../shared/pages/SubscriptionSection";
-
+import SupportSection from "../../shared/pages/SupportSection";
 
 const PERIOD_TITLE = {
   today: "today",
@@ -98,7 +98,7 @@ useEffect(() => {
   const knownSections = [
     "dashboard", "outlets", "settings", "people", "menu", "orders", "tables",
     "billing", "inventory", "purchases", "expenses", "accounting", "reports", "entries",
-    "analytics", "access", "notifications", "tasks", "calculator", "subscription"
+    "analytics", "access", "notifications", "tasks", "calculator", "subscription", "support"
   ];
 
     return (
@@ -151,6 +151,7 @@ useEffect(() => {
             {section === "analytics" && <AnalyticsSection />}
             {section === "access" && <AccessSection />}
             {section === "subscription" && <SubscriptionSection />}
+            {section === "support" && <SupportSection />}
             {!knownSections.includes(section) && <ComingSoon section={section} />}
           </main>
         </div>

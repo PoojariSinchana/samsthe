@@ -4,6 +4,7 @@ const { TICKET_STATUSES, TICKET_PRIORITIES, TICKET_CATEGORIES } = require("../mo
 const AdminUser = require("../models/AdminUser");
 const Business = require("../../../shared/models/Business");
 const { appMaps, withAppType } = require("../utils/billing");
+const { notify } = require("../../../shared/services/notify");
 
 const escapeRe = (s) => s.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const blank = (v) => (v === "" || v === undefined ? null : v);
@@ -23,7 +24,18 @@ function applyStatus(ticket, status) {
   if (status === undefined || status === ticket.status) return;
   ticket.status = status;
   ticket.resolvedAt = CLOSED.includes(status) ? ticket.resolvedAt || new Date() : null;
+
+    async function tellClient(ticket, title, message) {
+  if (!ticket.requestedBy || !ticket.businessId) return;
+  await notify({
+    businessId: ticket.businessId, userId: ticket.requestedBy, type: "support",
+    title, message, section: "support",
+  });
 }
+
+}
+
+
 
 const ticketController = {
   async getMeta(req, res) {

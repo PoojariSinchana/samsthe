@@ -10,6 +10,7 @@ const notificationSchema = new mongoose.Schema(
     link: { section: { type: String } },     // sidebar section key to open on click
     taskId: { type: mongoose.Schema.Types.ObjectId, ref: "Task" },
     readAt: { type: Date, default: null },
+    type: { type: String, enum: ["task_assigned", "task_due", "task_overdue", "task_done", "subscription", "support", "general"], default: "general" },
   },
   { timestamps: true }
 );

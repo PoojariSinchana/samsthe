@@ -27,6 +27,7 @@ import {
   Lock,
   MoreHorizontal,
   CreditCard,
+  LifeBuoy,
 } from "lucide-react";
 
 // `feature` (optional) must match a key in the plan's `modules` list.
@@ -48,6 +49,7 @@ const NAV_ITEMS = [
   { label: "System Access", key: "access", feature: "access", roles: ["owner", "manager"], icon: ShieldCheck },
   { label: "Settings", key: "settings", roles: ["owner"], icon: Settings },
   { label: "Subscription", key: "subscription", roles: ["owner"], icon: CreditCard },
+  { label: "Help & Support", key: "support", roles: null, icon: LifeBuoy },
 ];
 
 // Shortcuts shown in the phone bottom bar (only the ones this role can open)

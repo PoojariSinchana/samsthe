@@ -26,6 +26,7 @@ import {
   Lock,
   MoreHorizontal,
   CreditCard,
+  LifeBuoy,
 } from "lucide-react";
 
 // Same shape as Sidebar.jsx's NAV_ITEMS, swapped for retail vocabulary.
@@ -47,6 +48,7 @@ const NAV_ITEMS = [
   { label: "System Access", key: "access", feature: "access", roles: ["owner", "manager"], icon: ShieldCheck },
   { label: "Settings", key: "settings", roles: ["owner"], icon: Settings },
   { label: "Subscription", key: "subscription", roles: ["owner"], icon: CreditCard },
+  { label: "Help & Support", key: "support", roles: null, icon: LifeBuoy },
 ];
 
 const BOTTOM_KEYS = ["dashboard", "pos", "products", "stock"];

@@ -134,7 +134,7 @@ export default function AdminSupportSection() {
                 <tr key={t._id} className="border-b border-charcoal-lighter last:border-0 hover:bg-charcoal">
                   <td className="px-5 py-3 text-cream">
                     <button onClick={() => setOpenId(t._id)} className="text-left hover:text-saffron">{t.subject}</button>
-                    <p className="text-xs text-muted">{t.ticketNumber} · {human(t.category)}{t.replyCount ? ` · ${t.replyCount} repl${t.replyCount > 1 ? "ies" : "y"}` : ""}</p></td>
+                    <p className="text-xs text-muted">{t.ticketNumber} · {human(t.category)}{t.source === "client" ? " · via app" : ""}{t.replyCount ? ` · ${t.replyCount} repl${t.replyCount > 1 ? "ies" : "y"}` : ""}</p></td>
                   <td className="px-5 py-3 text-muted">{t.client?.name || t.contactName || "—"}
                     {t.client?.appType && <p className="text-xs">{human(t.client.appType)}</p>}</td>
                   <td className="px-5 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${PRIORITY_STYLE[t.priority]}`}>{human(t.priority)}</span></td>
@@ -326,8 +326,12 @@ function TicketDetail({ id, meta, canManage, onClose, onChanged }) {
                     {t.replies.map((r) => (
                       <li key={r._id} className={`rounded-sm border p-3 text-sm ${r.internal ? "border-saffron/40 bg-saffron/5" : "border-charcoal-lighter"}`}>
                         <div className="flex items-center justify-between gap-2 text-xs text-muted">
-                          <span className="text-cream">{r.author?.name || "Former team member"}</span>
-                          <span>{r.internal && <span className="mr-2 rounded-full bg-saffron/15 px-2 py-0.5 text-saffron">Internal note</span>}{dateTime(r.createdAt)}</span>
+                         <span className="text-cream">{r.author?.name || r.authorName || "Former team member"}</span>
+                        <span>
+                        {r.fromClient && <span className="mr-2 rounded-full bg-sage/15 px-2 py-0.5 text-sage">Client</span>}
+                        {r.internal && <span className="mr-2 rounded-full bg-saffron/15 px-2 py-0.5 text-saffron">Internal note</span>}
+                        {dateTime(r.createdAt)}
+                        </span>
                         </div>
                         <p className="mt-1 whitespace-pre-wrap text-cream">{r.message}</p>
                       </li>

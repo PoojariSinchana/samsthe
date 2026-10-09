@@ -6,9 +6,12 @@ const TICKET_CATEGORIES = ["bug", "billing", "how_to", "feature_request", "accou
 
 const replySchema = new mongoose.Schema(
   {
-    author: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser", required: true },
+    author: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser", default: null }, // null for client replies
+    fromClient: { type: Boolean, default: false },
+    clientUser: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    authorName: { type: String, trim: true, default: "" },
     message: { type: String, required: true, trim: true },
-    internal: { type: Boolean, default: false }, // internal notes are never shown to the client
+    internal: { type: Boolean, default: false },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );
@@ -28,6 +31,8 @@ const ticketSchema = new mongoose.Schema(
     replies: { type: [replySchema], default: [] },
     resolvedAt: { type: Date, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+    source: { type: String, enum: ["admin", "client"], default: "admin" },
+    requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );

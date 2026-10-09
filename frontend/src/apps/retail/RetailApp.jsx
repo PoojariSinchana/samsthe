@@ -25,7 +25,7 @@ import TasksSection from "../../shared/pages/TasksSection";
 import CalculatorSection from "../../shared/pages/CalculatorSection";
 import DashboardHeader from "../../shared/components/DashboardHeader";
 import SubscriptionSection from "../../shared/pages/SubscriptionSection";
-
+import SupportSection from "../../shared/pages/SupportSection";
 
 const PERIOD_TITLE = { today: "today", week: "the last 7 days", month: "this month", year: "this year" };
 const PERIOD_OPTIONS = [
@@ -87,7 +87,8 @@ useEffect(() => {
   "notifications",
   "tasks",
   "calculator",
-  "subscription"
+  "subscription",
+  "support"
 ];
 
     return (
@@ -131,6 +132,7 @@ useEffect(() => {
             {section === "analytics" && <ShopAnalyticsSection />}
             {section === "pos" && <ShopPosSection onNavigate={setSection} />}
             {section === "subscription" && <SubscriptionSection />}
+            {section === "support" && <SupportSection />}
             {!knownSections.includes(section) && <ComingSoon section={section} />}
           </main>
         </div>
