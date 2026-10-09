@@ -5,6 +5,7 @@ const Payment = require("../models/Payment");
 const Business = require("../../../shared/models/Business");
 const Subscription = require("../models/Subscription");
 const { paidTotals, nextInvoiceNumber, sweepOverdue, clientOptions, appMaps, withAppType } = require("../utils/billing");
+const { settings } = require("../utils/settings");
 
 const escapeRe = (s) => s.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -38,7 +39,7 @@ const shapeInvoice = (i, maps) => ({
 const invoiceController = {
   async getMeta(req, res) {
     try {
-      res.json({ statuses: INVOICE_STATUSES, clients: await clientOptions() });
+      res.json({ statuses: INVOICE_STATUSES, clients: await clientOptions(), defaults: { dueDays: settings().invoicing.defaultDueDays } });
     } catch (err) {
       res.status(500).json({ message: "Failed to load options", error: err.message });
     }

@@ -1,8 +1,10 @@
 const Subscription = require("../../modules/admin/models/Subscription");
 const Outlet = require("../models/Outlet");
 const User = require("../models/User");
-const GRACE_DAYS = 3; // days of leeway after a trial or period ends
+
 const NEEDS_PLAN_STATUSES = ["PENDING", "EXPIRED", "CANCELLED"];
+const { settings } = require("../../modules/admin/utils/settings");
+const graceDays = () => settings().billing.graceDays;
 
 const getSub = (businessId) =>
   Subscription.findOne({ businessId }, "status limits trialEndsAt currentPeriodEnd planId")
@@ -68,7 +70,7 @@ function isLapsed(sub) {
   if (!sub) return false;
   if (["CANCELLED", "SUSPENDED"].includes(sub.status)) return true;
   const end = sub.status === "TRIAL" ? sub.trialEndsAt || sub.currentPeriodEnd : sub.currentPeriodEnd;
-  return !!end && Date.now() > new Date(end).getTime() + GRACE_DAYS * 864e5;
+  return !!end && Date.now() > new Date(end).getTime() + graceDays() * 864e5;
 }
 
 async function requireActiveSubscription(req, res, next) {

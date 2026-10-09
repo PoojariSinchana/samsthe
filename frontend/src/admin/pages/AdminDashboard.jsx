@@ -4,7 +4,7 @@ import { ADMIN_NAV } from "../components/AdminSidebar";
 import * as dashApi from "../api/adminDashboardApi";
 import { human } from "../utils/human";
 
-const LIVE = new Set(["admins", "leads", "clients", "plans", "invoices", "payments", "subscriptions", "tasks", "reports", "projects", "support", "employees"]);
+const LIVE = new Set(["admins", "leads", "clients", "plans", "invoices", "payments", "subscriptions", "tasks", "reports", "projects", "support", "employees", "analytics", "settings"]);
 const rupees = (n) => `₹${(n || 0).toLocaleString("en-IN")}`;
 const dateStr = (d) => new Date(d).toLocaleDateString("en-IN");
 

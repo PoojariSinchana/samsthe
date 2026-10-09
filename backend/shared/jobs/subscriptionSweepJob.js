@@ -2,7 +2,7 @@ const Subscription = require("../../modules/admin/models/Subscription");
 const Business = require("../models/Business");
 const { sweepSubscriptions, sweepOverdue, createRenewalInvoice } = require("../../modules/admin/utils/billing");
 const { notify } = require("../services/notify");
-
+const { settings } = require("../../modules/admin/utils/settings");
 const DAY = 864e5;
 const RENEW_DAYS = 7;
 const fmt = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
@@ -14,6 +14,7 @@ async function tell(businessId, title, message) {
 }
 
 async function sweep() {
+  const { renewalLeadDays, trialReminderDays } = settings().billing;
   const { expiredTrials, pastDue } = await sweepSubscriptions();
   await sweepOverdue();
   const now = new Date();
@@ -22,7 +23,7 @@ async function sweep() {
   for (const s of pastDue) await tell(s.businessId, "Your subscription period has ended", "Pay your renewal invoice from Subscription to avoid losing access.");
 
   const ending = await Subscription.find({
-    status: "TRIAL", trialEndsAt: { $gte: now, $lte: new Date(now.getTime() + 3 * DAY) }, trialReminderSentAt: null,
+    status: "TRIAL", trialEndsAt: { $gte: now, $lte: new Date(now.getTime() + trialReminderDays * DAY) }, trialReminderSentAt: null,
   }).limit(200);
   for (const s of ending) {
     s.trialReminderSentAt = now;
@@ -33,7 +34,7 @@ async function sweep() {
   // Auto-send renewal invoices. createRenewalInvoice skips if one is already open, so this is safe to repeat.
   const renewing = await Subscription.find({
     status: { $in: ["ACTIVE", "PAST_DUE"] }, amount: { $gt: 0 },
-    currentPeriodEnd: { $lte: new Date(now.getTime() + RENEW_DAYS * DAY) },
+    currentPeriodEnd: { $lte: new Date(now.getTime() + renewalLeadDays * DAY) },
   }).limit(200);
   for (const s of renewing) {
     const { invoice } = await createRenewalInvoice(s, undefined, "sent");

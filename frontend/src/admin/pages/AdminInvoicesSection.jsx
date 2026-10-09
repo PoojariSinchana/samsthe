@@ -172,7 +172,7 @@ function InvoiceModal({ meta, onClose, onSaved }) {
   const [restaurantId, setRestaurantId] = useState("");
   const [lines, setLines] = useState([{ description: "", quantity: 1, unitPrice: "" }]);
   const [tax, setTax] = useState(0);
-  const [dueDate, setDueDate] = useState(inDays(7));
+  const [dueDate, setDueDate] = useState(inDays(meta.defaults?.dueDays ?? 7));
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);

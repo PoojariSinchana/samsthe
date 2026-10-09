@@ -23,6 +23,8 @@ const projectRoutes = require("./modules/admin/routes/projectRoutes");
 const ticketRoutes = require("./modules/admin/routes/ticketRoutes");
 const supportRoutes = require("./shared/routes/supportRoutes");
 const employeeRoutes = require("./modules/admin/routes/employeeRoutes");
+const adminAnalyticsRoutes = require("./modules/admin/routes/adminAnalyticsRoutes");
+const adminSettingsRoutes = require("./modules/admin/routes/settingsRoutes");
 
 // ===== SHARED (restaurant + retail use the same routes) =====
 const authRoutes = require("./shared/routes/authRoutes");
@@ -120,9 +122,13 @@ app.use("/api/admin/subscriptions", subscriptionRoutes);
 app.use("/api/admin/tasks", adminTaskRoutes);
 app.use("/api/admin/reports", adminReportRoutes);
 app.use("/api/admin/projects", projectRoutes);
-pp.use("/api/admin/support", ticketRoutes);
+app.use("/api/admin/support", ticketRoutes);
 app.use("/api/support", protect, supportRoutes);
 app.use("/api/admin/employees", employeeRoutes);
+app.use("/api/admin/support", ticketRoutes);      
+app.use("/api/admin/analytics", adminAnalyticsRoutes);
+app.use("/api/admin/settings", adminSettingsRoutes);
+
 
 // ===== BUSINESS APIs (same endpoints for restaurant and retail) =====
 app.use("/api/business", businessRoutes);
