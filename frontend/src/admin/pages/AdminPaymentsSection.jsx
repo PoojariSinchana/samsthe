@@ -109,13 +109,10 @@ export default function AdminPaymentsSection() {
             <tbody>
               {payments.map((p) => (
                 <tr key={p._id} className="border-b border-charcoal-lighter last:border-0 hover:bg-charcoal">
-                    <td className="px-5 py-3 text-cream">{p.client?.name || "—"}
-                      {(p.utr || p.gatewayReference) && <p className="text-xs text-muted">Ref {p.utr || p.gatewayReference}</p>}
-                    </td>
                   <td className="px-5 py-3 text-muted">{dateStr(p.paidAt || p.createdAt)}</td>
-                  <td className="px-5 py-3 text-cream">
-                  {(p.utr || p.gatewayReference) && <p className="text-xs text-muted">Ref {p.utr || p.gatewayReference}</p>}
-                </td>
+                  <td className="px-5 py-3 text-cream">{p.client?.name || "—"}
+                    {(p.utr || p.gatewayReference) && <p className="text-xs text-muted">Ref {p.utr || p.gatewayReference}</p>}
+                  </td>
                   <td className="px-5 py-3 text-muted">{p.invoice?.invoiceNumber || "—"}</td>
                   <td className="px-5 py-3 text-muted">{human(p.method)}</td>
                   <td className="px-5 py-3 text-cream">{rupees(p.amount)}</td>

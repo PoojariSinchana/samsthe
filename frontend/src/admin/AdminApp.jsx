@@ -11,6 +11,8 @@ import AdminPlansSection from "./pages/AdminPlansSection";
 import AdminInvoicesSection from "./pages/AdminInvoicesSection";
 import AdminPaymentsSection from "./pages/AdminPaymentsSection";
 import AdminSubscriptionsSection from "./pages/AdminSubscriptionsSection";
+import AdminTasksSection from "./pages/AdminTasksSection";
+import AdminReportsSection from "./pages/AdminReportsSection";
 // Same section-state pattern as RestaurantApp / RetailApp. As you build each
 // module (leads, invoices, ...), add its page here and remove it from the
 // fallback below.
@@ -43,6 +45,10 @@ export default function AdminApp() {
          <AdminInvoicesSection />
         ) : section === "payments" ? (
          <AdminPaymentsSection />
+         ) : section === "tasks" ? (
+          <AdminTasksSection />
+        ) : section === "reports" ? (
+          <AdminReportsSection />
         ) : section === "profile" ? (
          <AdminProfile />
         ) : (
