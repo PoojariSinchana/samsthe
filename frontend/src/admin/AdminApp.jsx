@@ -15,6 +15,7 @@ import AdminTasksSection from "./pages/AdminTasksSection";
 import AdminReportsSection from "./pages/AdminReportsSection";
 import AdminProjectsSection from "./pages/AdminProjectsSection";
 import AdminSupportSection from "./pages/AdminSupportSection";
+import AdminEmployeesSection from "./pages/AdminEmployeesSection";
 
 // Same section-state pattern as RestaurantApp / RetailApp. As you build each
 // module (leads, invoices, ...), add its page here and remove it from the
