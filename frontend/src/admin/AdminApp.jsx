@@ -56,6 +56,8 @@ export default function AdminApp() {
           <AdminProjectsSection />
         ) : section === "support" ? (
           <AdminSupportSection />
+        ) : section === "employees" ? (
+         <AdminEmployeesSection />
         ) : section === "profile" ? (
          <AdminProfile />
         ) : (
