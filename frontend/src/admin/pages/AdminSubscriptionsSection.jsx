@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import * as subApi from "../api/adminSubscriptionsApi";
 import { useAdminAuth } from "../context/AdminAuthContext";
+import { human } from "../utils/human";
 
 const inputCls = "w-full rounded-sm border border-charcoal-lighter bg-charcoal-light px-3 py-2.5 text-cream outline-none focus:border-saffron";
-const human = (s = "") => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 const rupees = (n) => `₹${(n || 0).toLocaleString("en-IN")}`;
 const dateStr = (d) => (d ? new Date(d).toLocaleDateString("en-IN") : "—");
 const STYLE = {

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import * as payApi from "../api/adminPaymentsApi";
 import { useAdminAuth } from "../context/AdminAuthContext";
 import RecordPaymentModal from "../components/RecordPaymentModal";
+import { human } from "../utils/human";
 
 const inputCls = "w-full rounded-sm border border-charcoal-lighter bg-charcoal-light px-3 py-2.5 text-cream outline-none focus:border-saffron";
-const human = (s = "") => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 const rupees = (n) => `₹${(n || 0).toLocaleString("en-IN")}`;
 const dateStr = (d) => (d ? new Date(d).toLocaleDateString("en-IN") : "—");
 const STYLE = { paid: "bg-sage/10 text-sage", pending: "bg-saffron/10 text-saffron", failed: "bg-brick/10 text-brick", refunded: "bg-charcoal-lighter text-muted" };

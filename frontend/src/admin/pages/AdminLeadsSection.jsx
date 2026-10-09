@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import * as leadsApi from "../api/adminLeadsApi";
 import { useAdminAuth } from "../context/AdminAuthContext";
+import { human } from "../utils/human";
 
 const inputCls = "w-full rounded-sm border border-charcoal-lighter bg-charcoal-light px-3 py-2.5 text-cream outline-none focus:border-saffron";
 const labelCls = "mb-1 block text-xs text-muted";
 
-const human = (s = "") => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 const STATUS_STYLE = {
   NEW: "bg-saffron/10 text-saffron",
   CONTACTED: "bg-saffron/10 text-saffron",

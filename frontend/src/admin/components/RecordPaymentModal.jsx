@@ -1,9 +1,9 @@
 import { useState } from "react";
 import * as paymentsApi from "../api/adminPaymentsApi";
+import { human } from "../utils/human";
 
 const inputCls = "w-full rounded-sm border border-charcoal-lighter bg-charcoal-light px-3 py-2.5 text-cream outline-none focus:border-saffron";
 const labelCls = "mb-1 block text-xs text-muted";
-const human = (s = "") => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 const rupees = (n) => `₹${(n || 0).toLocaleString("en-IN")}`;
 
 // Pass `invoice` (with amountDue) to pay a specific invoice, or `openInvoices` + `clients` for the free-form version.

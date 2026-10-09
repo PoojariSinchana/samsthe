@@ -3,10 +3,10 @@ import * as invApi from "../api/adminInvoicesApi";
 import * as payApi from "../api/adminPaymentsApi";
 import { useAdminAuth } from "../context/AdminAuthContext";
 import RecordPaymentModal from "../components/RecordPaymentModal";
+import { human } from "../utils/human";
 
 const inputCls = "w-full rounded-sm border border-charcoal-lighter bg-charcoal-light px-3 py-2.5 text-cream outline-none focus:border-saffron";
 const labelCls = "mb-1 block text-xs text-muted";
-const human = (s = "") => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 const rupees = (n) => `₹${(n || 0).toLocaleString("en-IN")}`;
 const dateStr = (d) => (d ? new Date(d).toLocaleDateString("en-IN") : "—");
 const inDays = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);

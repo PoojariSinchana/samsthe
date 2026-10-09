@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { useAdminAuth } from "../context/AdminAuthContext";
 import { ADMIN_NAV } from "../components/AdminSidebar";
 import * as dashApi from "../api/adminDashboardApi";
+import { human } from "../utils/human";
 
 const LIVE = new Set(["admins", "leads", "clients", "plans", "invoices", "payments", "subscriptions"]);
 const rupees = (n) => `₹${(n || 0).toLocaleString("en-IN")}`;
 const dateStr = (d) => new Date(d).toLocaleDateString("en-IN");
-const human = (s = "") => s.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+
 
 function Stat({ label, value, sub, accent = "text-cream", onClick }) {
   const Tag = onClick ? "button" : "div";
