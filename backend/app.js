@@ -19,6 +19,7 @@ const subscriptionRoutes = require("./modules/admin/routes/subscriptionRoutes");
 const razorpayController = require("./shared/controllers/razorpayController");
 const adminTaskRoutes = require("./modules/admin/routes/adminTaskRoutes");
 const adminReportRoutes = require("./modules/admin/routes/adminReportRoutes");
+const projectRoutes = require("./modules/admin/routes/projectRoutes");
 
 
 // ===== SHARED (restaurant + retail use the same routes) =====
@@ -116,6 +117,7 @@ app.use("/api/admin/payments", paymentRoutes);
 app.use("/api/admin/subscriptions", subscriptionRoutes);
 app.use("/api/admin/tasks", adminTaskRoutes);
 app.use("/api/admin/reports", adminReportRoutes);
+app.use("/api/admin/projects", projectRoutes);
 
 // ===== BUSINESS APIs (same endpoints for restaurant and retail) =====
 app.use("/api/business", businessRoutes);
