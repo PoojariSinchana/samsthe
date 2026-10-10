@@ -28,10 +28,10 @@ export default function RestaurantSetup() {
   const navigate = useNavigate();
   const { updateRestaurantInfo, restaurant } = useAuth();
   const isRetail = restaurant?.appType === "retail";
-  const dest = isRetail ? "/app/retail" : "/app/restaurant";
+  const dest = isRetail ? "/retail/app" : "/restaurant/app";
   const [params] = useSearchParams();
   const plan = params.get("plan");
-  const next = `/choose-plan${plan ? `?plan=${plan}` : ""}`;
+  const next = `/${isRetail ? "retail" : "restaurant"}/plan${plan ? `?plan=${plan}` : ""}`;
 
   const BUSINESS_TYPES = isRetail ? RETAIL_BUSINESS_TYPES : RESTAURANT_BUSINESS_TYPES;
 

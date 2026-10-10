@@ -19,7 +19,7 @@ export default function ChoosePlan() {
 
   const preselect = params.get("plan");
   const isOwner = user?.role === "owner";
-  const dest = `/app/${business?.appType || "restaurant"}`;
+  const dest = `/${business?.appType || "restaurant"}/app`;
 
   useEffect(() => {
     api.get("/business/me/plans").then(({ data }) => setData(data))

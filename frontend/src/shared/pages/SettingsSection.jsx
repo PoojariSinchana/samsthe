@@ -372,7 +372,8 @@ function PasswordField({ label, name, value, onChange }) {
 }
 
 function DangerZoneCard() {
-  const { logout } = useAuth();
+  
+  const { logout, restaurant } = useAuth();
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState("");
@@ -386,7 +387,7 @@ function DangerZoneCard() {
     try {
       await api.delete("/auth/account", { data: { password } });
       logout();
-      navigate("/");
+      navigate(`/${restaurant?.appType || "restaurant"}/login`);
     } catch (err) {
       setError(err.response?.data?.message || "Couldn't delete account.");
     } finally {

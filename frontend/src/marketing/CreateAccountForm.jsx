@@ -44,7 +44,7 @@ export default function CreateAccountForm({ appType }) {
     try {
       const { data } = await api.post("/auth/register", { ...form, appType });
       loginSuccess(data);
-      navigate(`/restaurant-setup${plan ? `?plan=${plan}` : ""}`);
+      navigate(`/${appType}/setup${plan ? `?plan=${plan}` : ""}`);
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
@@ -59,7 +59,9 @@ export default function CreateAccountForm({ appType }) {
       <div className="w-full max-w-2xl">
         <header className="flex items-center justify-between border-b border-charcoal-lighter bg-charcoal-light px-4 py-3">
           <Logo compact />
-          <Link to="/" className="text-sm text-muted hover:text-cream">← Website</Link>
+          {!window.matchMedia("(display-mode: standalone)").matches && (
+            <Link to="/" className="text-sm text-muted hover:text-cream">← Website</Link>
+          )}
         </header>
 
         <div className="receipt-card rounded-sm px-6 pb-8 pt-10 sm:px-10">

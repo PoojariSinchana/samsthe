@@ -1,9 +1,9 @@
 {
-  "id": "/app/restaurant",
+  "id": "/app/restaurant/app",
   "name": "Samsthe Restaurant Manager",
   "short_name": "Restaurant",
-  "start_url": "/app/restaurant",
-  "scope": "/",
+  "start_url": "/app/restaurant/app",
+  "scope": "/restaurant/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",

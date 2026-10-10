@@ -1,9 +1,9 @@
 {
-  "id": "/app/retail",
+  "id": "/app/retail/app",
   "name": "Samsthe Retail Shop",
   "short_name": "Shop",
-  "start_url": "/app/retail",
-  "scope": "/",
+  "start_url": "/app/retail/app",
+  "scope": "/retail/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",

@@ -141,7 +141,7 @@ export default function ProductFormModal({ categories, brands, initialProduct, o
               <ImageUploadField
                 label="Add an image"
                 value=""
-                uploadUrl="/products/upload-image"
+                uploadUrl="/catalog/items/upload-image"
                 formFieldName="image"
                 shape="square"
                 onUploaded={addImage}

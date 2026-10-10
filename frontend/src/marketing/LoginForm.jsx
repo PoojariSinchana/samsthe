@@ -45,7 +45,7 @@ export default function LoginForm({ appType }) {
       }
 
       loginSuccess(data);
-      navigate(data.business?.appType === "retail" ? "/app/retail" : "/app/restaurant");
+      navigate(data.business?.appType === "retail" ? "/retail/app" : "/restaurant/app");
     } catch (err) {
       const body = err.response?.data;
       if (body?.code === "NO_BUSINESS_FOR_APP") {
@@ -99,7 +99,9 @@ export default function LoginForm({ appType }) {
       <div className="w-full max-w-sm">
         <header className="flex items-center justify-between border-b border-charcoal-lighter bg-charcoal-light px-4 py-3">
           <Logo compact />
-          <Link to="/" className="text-sm text-muted hover:text-cream">← Website</Link>
+          {!window.matchMedia("(display-mode: standalone)").matches && (
+            <Link to="/" className="text-sm text-muted hover:text-cream">← Website</Link>
+          )}
         </header>
 
         <div className="receipt-card rounded-sm px-6 pb-8 pt-10 sm:px-8">

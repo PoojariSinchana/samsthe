@@ -4,6 +4,7 @@ import api from "../api/axios";
 import { usePlan } from "../context/PlanContext";
 import { FEATURE_LABELS } from "../constants/features";
 import PayByUpi from "../../marketing/PayByUpi";
+import { useAuth } from "../context/AuthContext";
 
 const rupees = (n) => `₹${Math.round(n || 0).toLocaleString("en-IN")}`;
 const dateStr = (d) => (d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—");
@@ -18,6 +19,7 @@ const STATUS_STYLE = {
 const daysLeft = (d) => (d ? Math.ceil((new Date(d) - Date.now()) / 864e5) : null);
 
 export default function SubscriptionSection() {
+  const { business } = useAuth();
   const { refresh: refreshPlan } = usePlan();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -57,7 +59,7 @@ export default function SubscriptionSection() {
   const { subscription: sub, usage, openInvoice, invoices, payments, plans } = data;
   if (!sub) return (
     <div className="receipt-card max-w-md rounded-sm p-8 text-center text-sm text-muted">
-      You don't have a plan yet. <a href="/choose-plan" className="text-saffron hover:underline">Choose one</a>.
+      You don't have a plan yet. <a href={`/${business?.appType || "restaurant"}/plan`} className="text-saffron hover:underline">Choose one</a>.
     </div>
   );
 

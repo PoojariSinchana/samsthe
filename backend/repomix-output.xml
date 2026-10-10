@@ -42,6 +42,7 @@ The content is organized as follows:
 <directory_structure>
 app.js
 config/db.js
+modules/admin/controllers/adminAnalyticsController.js
 modules/admin/controllers/adminAuthController.js
 modules/admin/controllers/adminReportController.js
 modules/admin/controllers/adminTaskController.js
@@ -53,6 +54,7 @@ modules/admin/controllers/leadController.js
 modules/admin/controllers/paymentController.js
 modules/admin/controllers/planController.js
 modules/admin/controllers/projectController.js
+modules/admin/controllers/settingsController.js
 modules/admin/controllers/subscriptionController.js
 modules/admin/controllers/ticketController.js
 modules/admin/middleware/adminAuthMiddleware.js
@@ -62,10 +64,12 @@ modules/admin/models/Employee.js
 modules/admin/models/Invoice.js
 modules/admin/models/Lead.js
 modules/admin/models/Payment.js
+modules/admin/models/PlatformSettings.js
 modules/admin/models/PricingPlan.js
 modules/admin/models/Project.js
 modules/admin/models/Subscription.js
 modules/admin/models/Ticket.js
+modules/admin/routes/adminAnalyticsRoutes.js
 modules/admin/routes/adminAuthRoutes.js
 modules/admin/routes/adminReportRoutes.js
 modules/admin/routes/adminTaskRoutes.js
@@ -77,10 +81,12 @@ modules/admin/routes/leadRoutes.js
 modules/admin/routes/paymentRoutes.js
 modules/admin/routes/planRoutes.js
 modules/admin/routes/projectRoutes.js
+modules/admin/routes/settingsRoutes.js
 modules/admin/routes/subscriptionRoutes.js
 modules/admin/routes/ticketRoutes.js
 modules/admin/utils/billing.js
 modules/admin/utils/generateAdminToken.js
+modules/admin/utils/settings.js
 modules/restaurant/controllers/tableController.js
 modules/restaurant/jobs/tableCleanupJob.js
 modules/restaurant/models/Table.js
@@ -207,6 +213,8 @@ const projectRoutes = require("./modules/admin/routes/projectRoutes");
 const ticketRoutes = require("./modules/admin/routes/ticketRoutes");
 const supportRoutes = require("./shared/routes/supportRoutes");
 const employeeRoutes = require("./modules/admin/routes/employeeRoutes");
+const adminAnalyticsRoutes = require("./modules/admin/routes/adminAnalyticsRoutes");
+const adminSettingsRoutes = require("./modules/admin/routes/settingsRoutes");
 
 // ===== SHARED (restaurant + retail use the same routes) =====
 const authRoutes = require("./shared/routes/authRoutes");
@@ -304,9 +312,13 @@ app.use("/api/admin/subscriptions", subscriptionRoutes);
 app.use("/api/admin/tasks", adminTaskRoutes);
 app.use("/api/admin/reports", adminReportRoutes);
 app.use("/api/admin/projects", projectRoutes);
-pp.use("/api/admin/support", ticketRoutes);
+app.use("/api/admin/support", ticketRoutes);
 app.use("/api/support", protect, supportRoutes);
 app.use("/api/admin/employees", employeeRoutes);
+app.use("/api/admin/support", ticketRoutes);      
+app.use("/api/admin/analytics", adminAnalyticsRoutes);
+app.use("/api/admin/settings", adminSettingsRoutes);
+
 
 // ===== BUSINESS APIs (same endpoints for restaurant and retail) =====
 app.use("/api/business", businessRoutes);
@@ -380,6 +392,185 @@ async function connectDB() {
 }
 
 module.exports = connectDB;
+</file>
+
+<file path="modules/admin/controllers/adminAnalyticsController.js">
+const Business = require("../../../shared/models/Business");
+const User = require("../../../shared/models/User");
+const Order = require("../../../shared/models/Order");
+const Purchase = require("../../../shared/models/Purchase");
+const Entry = require("../../../shared/models/Entry");
+const Task = require("../../../shared/models/Task");
+const Outlet = require("../../../shared/models/Outlet");
+const Subscription = require("../models/Subscription");
+const Payment = require("../models/Payment");
+const Ticket = require("../models/Ticket");
+const { appMaps } = require("../utils/billing");
+
+const DAY = 864e5;
+const TZ = "Asia/Kolkata";
+const ym = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const monthGroup = (f) => ({ $dateToString: { format: "%Y-%m", date: `$${f}`, timezone: TZ } });
+const MRR = { $cond: [{ $eq: ["$billingCycle", "yearly"] }, { $divide: ["$amount", 12] }, "$amount"] };
+const mrrOf = (s) => (s.billingCycle === "yearly" ? s.amount / 12 : s.amount);
+const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+const countMap = (rows) => new Map(rows.map((r) => [String(r._id), r.n]));
+
+function fillMonths(from, to, rows, fields) {
+  const by = new Map(rows.map((r) => [r._id, r]));
+  const out = [];
+  const cur = new Date(from.getFullYear(), from.getMonth(), 1);
+  while (cur <= to) {
+    const k = ym(cur), r = by.get(k);
+    out.push({ month: k, ...Object.fromEntries(fields.map((f) => [f, r?.[f] || 0])) });
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return out;
+}
+
+async function getAnalytics(req, res) {
+  try {
+    const months = Math.min(24, Math.max(1, parseInt(req.query.months, 10) || 6));
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+    const range = { $gte: from, $lte: now };
+    const d7 = new Date(now - 7 * DAY), d14 = new Date(now - 14 * DAY), d30 = new Date(now - 30 * DAY);
+    const maps = await appMaps();
+    const orderOk = { status: { $ne: "cancelled" } };
+
+    const [
+      signupRows, trialBiz, newBiz, cancelled, expiredTrials, activeNow,
+      mrrRows, volRows, engRows, totalBiz, topRows, paying, adopt,
+    ] = await Promise.all([
+      Business.aggregate([{ $match: { createdAt: range } }, { $group: { _id: "$appId", n: { $sum: 1 } } }]),
+      Business.find({ trialUsedAt: range }, "_id").lean(),
+      Business.find({ createdAt: range }, "_id").lean(),
+      Subscription.countDocuments({ cancelledAt: range }),
+      Subscription.countDocuments({ status: "EXPIRED", trialEndsAt: range }),
+      Subscription.countDocuments({ status: "ACTIVE", amount: { $gt: 0 } }),
+      Subscription.aggregate([
+        { $match: { status: "ACTIVE", amount: { $gt: 0 } } },
+        { $lookup: { from: "pricingplans", localField: "planId", foreignField: "_id", as: "plan" } },
+        { $unwind: { path: "$plan", preserveNullAndEmptyArrays: true } },
+        { $group: { _id: { $ifNull: ["$plan.appType", "unknown"] }, count: { $sum: 1 }, mrr: { $sum: MRR } } },
+      ]),
+      Order.aggregate([
+        { $match: { createdAt: range, ...orderOk } },
+        { $group: { _id: monthGroup("createdAt"), orders: { $sum: 1 }, volume: { $sum: "$total" } } },
+      ]),
+      // Last login per business -> engagement buckets
+      User.aggregate([
+        { $match: { businessId: { $ne: null } } },
+        { $group: { _id: "$businessId", last: { $max: "$lastLogin" } } },
+        { $group: {
+            _id: null, total: { $sum: 1 },
+            active7: { $sum: { $cond: [{ $gte: ["$last", d7] }, 1, 0] } },
+            active30: { $sum: { $cond: [{ $gte: ["$last", d30] }, 1, 0] } },
+            never: { $sum: { $cond: [{ $eq: ["$last", null] }, 1, 0] } },
+        } },
+      ]),
+      Business.countDocuments(),
+      Order.aggregate([
+        { $match: { createdAt: range, ...orderOk } },
+        { $group: { _id: "$businessId", orders: { $sum: 1 }, volume: { $sum: "$total" } } },
+        { $sort: { volume: -1 } }, { $limit: 10 },
+        { $lookup: { from: "businesses", localField: "_id", foreignField: "_id", as: "b" } },
+        { $project: { orders: 1, volume: 1,
+            name: { $ifNull: [{ $arrayElemAt: ["$b.name", 0] }, "Deleted business"] },
+            appId: { $arrayElemAt: ["$b.appId", 0] } } },
+      ]),
+      Subscription.find({ status: { $in: ["ACTIVE", "PAST_DUE"] }, amount: { $gt: 0 } },
+        "businessId amount billingCycle status planId limits")
+        .populate("planId", "name").populate("businessId", "name appId").limit(2000).lean(),
+      // Feature adoption: distinct businesses that used each area in the last 30 days
+      Promise.all([
+        Order.distinct("businessId", { createdAt: { $gte: d30 } }),
+        Purchase.distinct("businessId", { createdAt: { $gte: d30 } }),
+        Entry.distinct("businessId", { source: "MANUAL", createdAt: { $gte: d30 } }),
+        Task.distinct("businessId", { createdAt: { $gte: d30 } }),
+        User.distinct("businessId", { role: { $ne: "owner" }, status: "active" }),
+        Ticket.distinct("businessId", { source: "client", createdAt: { $gte: d30 } }),
+      ]),
+    ]);
+
+    // ── Acquisition ──
+    const trialIds = trialBiz.map((b) => b._id);
+    const converted = trialIds.length
+      ? (await Payment.distinct("businessId", { businessId: { $in: trialIds }, status: "paid" })).length : 0;
+    const newIds = newBiz.map((b) => b._id);
+    const chosen = newIds.length
+      ? await Subscription.countDocuments({ businessId: { $in: newIds }, status: { $ne: "PENDING" } }) : 0;
+    const signups = signupRows.reduce((s, r) => s + r.n, 0);
+
+    // ── Revenue ──
+    const byApp = mrrRows.map((r) => ({ appType: r._id, count: r.count, mrr: Math.round(r.mrr), arpa: r.count ? Math.round(r.mrr / r.count) : 0 }));
+    const mrrTotal = byApp.reduce((s, r) => s + r.mrr, 0);
+
+    // ── Engagement ──
+    const e = engRows[0] || { total: 0, active7: 0, active30: 0, never: 0 };
+
+    // ── At risk + upsell, from the paying clients ──
+    const ids = paying.map((s) => s.businessId?._id).filter(Boolean);
+    const [lastRows, orderRows, outletRows, staffRows] = await Promise.all([
+      User.aggregate([{ $match: { businessId: { $in: ids } } }, { $group: { _id: "$businessId", last: { $max: "$lastLogin" } } }]),
+      Order.aggregate([{ $match: { businessId: { $in: ids }, createdAt: { $gte: d30 }, ...orderOk } }, { $group: { _id: "$businessId", n: { $sum: 1 } } }]),
+      Outlet.aggregate([{ $match: { businessId: { $in: ids }, isActive: true } }, { $group: { _id: "$businessId", n: { $sum: 1 } } }]),
+      User.aggregate([{ $match: { businessId: { $in: ids }, role: { $ne: "owner" }, status: "active" } }, { $group: { _id: "$businessId", n: { $sum: 1 } } }]),
+    ]);
+    const lastBy = new Map(lastRows.map((r) => [String(r._id), r.last]));
+    const ordersBy = countMap(orderRows), outletsBy = countMap(outletRows), staffBy = countMap(staffRows);
+
+    const atRisk = [], upsell = [];
+    for (const s of paying) {
+      const b = s.businessId;
+      if (!b) continue;
+      const key = String(b._id);
+      const last = lastBy.get(key) || null;
+      const idleDays = last ? Math.floor((now - new Date(last)) / DAY) : null;
+      const base = { _id: b._id, name: b.name, appType: maps.slugById.get(String(b.appId)) || null, plan: s.planId?.name, mrr: Math.round(mrrOf(s)) };
+
+      const pastDue = s.status === "PAST_DUE";
+      const quiet = !last || new Date(last) < d14;
+      if (pastDue || quiet) {
+        atRisk.push({ ...base, status: s.status, lastLogin: last, idleDays, orders30: ordersBy.get(key) || 0,
+          reason: pastDue ? "Payment overdue" : !last ? "Never logged in" : `No login for ${idleDays} days` });
+      }
+      const o = outletsBy.get(key) || 0, st = staffBy.get(key) || 0;
+      const maxO = s.limits?.maxOutlets, maxS = s.limits?.maxStaff;
+      if ((maxO && o >= maxO) || (maxS && st >= maxS)) {
+        upsell.push({ ...base, outlets: { used: o, max: maxO }, staff: { used: st, max: maxS } });
+      }
+    }
+    atRisk.sort((a, b) => (b.status === "PAST_DUE") - (a.status === "PAST_DUE") || b.mrr - a.mrr);
+    upsell.sort((a, b) => b.mrr - a.mrr);
+
+    const labels = [["orders", "Orders / sales"], ["purchases", "Purchases"], ["transactions", "Transactions"], ["tasks", "Tasks"], ["staff", "Staff logins"], ["support", "Support tickets"]];
+
+    res.json({
+      range: { from, to: now }, months,
+      acquisition: {
+        signups, byApp: Object.fromEntries(signupRows.map((r) => [maps.slugById.get(String(r._id)) || "unknown", r.n])),
+        trials: trialIds.length, trialConverted: converted, trialConversionPct: pct(converted, trialIds.length),
+        stalled: newIds.length - chosen,   // signed up in range but never picked a plan
+      },
+      retention: { cancelled, expiredTrials, activeNow, churnPct: pct(cancelled, activeNow + cancelled) },
+      revenue: { mrr: mrrTotal, payingClients: activeNow, arpa: activeNow ? Math.round(mrrTotal / activeNow) : 0, byApp },
+      engagement: { total: e.total, active7: e.active7, active30: e.active30, idle: e.total - e.active30 - e.never, never: e.never },
+      volume: {
+        orders: volRows.reduce((s, r) => s + r.orders, 0), gmv: volRows.reduce((s, r) => s + r.volume, 0),
+        byMonth: fillMonths(from, now, volRows, ["orders", "volume"]),
+      },
+      adoption: labels.map(([k, label], i) => ({ key: k, label, clients: adopt[i].length, pct: pct(adopt[i].length, totalBiz) })),
+      topClients: topRows.map((r) => ({ _id: r._id, name: r.name, appType: maps.slugById.get(String(r.appId)) || null, orders: r.orders, volume: r.volume })),
+      atRisk: { count: atRisk.length, mrr: atRisk.reduce((s, r) => s + r.mrr, 0), list: atRisk.slice(0, 10) },
+      upsell: { count: upsell.length, list: upsell.slice(0, 10) },
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to build analytics", error: err.message });
+  }
+}
+
+module.exports = { getAnalytics };
 </file>
 
 <file path="modules/admin/controllers/adminAuthController.js">
@@ -1312,6 +1503,7 @@ const Payment = require("../models/Payment");
 const Business = require("../../../shared/models/Business");
 const Subscription = require("../models/Subscription");
 const { paidTotals, nextInvoiceNumber, sweepOverdue, clientOptions, appMaps, withAppType } = require("../utils/billing");
+const { settings } = require("../utils/settings");
 
 const escapeRe = (s) => s.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -1345,7 +1537,7 @@ const shapeInvoice = (i, maps) => ({
 const invoiceController = {
   async getMeta(req, res) {
     try {
-      res.json({ statuses: INVOICE_STATUSES, clients: await clientOptions() });
+      res.json({ statuses: INVOICE_STATUSES, clients: await clientOptions(), defaults: { dueDays: settings().invoicing.defaultDueDays } });
     } catch (err) {
       res.status(500).json({ message: "Failed to load options", error: err.message });
     }
@@ -1969,6 +2161,74 @@ const projectController = {
 };
 
 module.exports = projectController;
+</file>
+
+<file path="modules/admin/controllers/settingsController.js">
+const PlatformSettings = require("../models/PlatformSettings");
+const { refreshSettings } = require("../utils/settings");
+const { fail, send } = require("../../../shared/utils/httpError");
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const text = (v, max = 200) => String(v ?? "").trim().slice(0, max);
+function int(v, min, max, label) {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < min || n > max) throw fail(400, `${label} must be a whole number from ${min} to ${max}`);
+  return n;
+}
+
+module.exports = {
+  async getSettings(req, res) {
+    try { res.json({ settings: await PlatformSettings.get() }); }
+    catch (err) { send(res, err, "Failed to load settings"); }
+  },
+
+  async updateSettings(req, res) {
+    try {
+      const doc = await PlatformSettings.get();
+      const { company, invoicing, billing } = req.body || {};
+
+      if (company) {
+        if (company.name !== undefined) {
+          if (!text(company.name)) throw fail(400, "Company name is required");
+          doc.company.name = text(company.name);
+        }
+        if (company.supportEmail !== undefined) {
+          const e = text(company.supportEmail).toLowerCase();
+          if (e && !EMAIL_RE.test(e)) throw fail(400, "Please enter a valid support email");
+          doc.company.supportEmail = e;
+        }
+        if (company.supportPhone !== undefined) doc.company.supportPhone = text(company.supportPhone, 30);
+        if (company.address !== undefined) doc.company.address = text(company.address, 500);
+        if (company.gstin !== undefined) {
+          const g = text(company.gstin, 15).toUpperCase();
+          if (g && !/^[0-9A-Z]{15}$/.test(g)) throw fail(400, "GSTIN must be 15 letters/digits");
+          doc.company.gstin = g;
+        }
+      }
+
+      if (invoicing) {
+        if (invoicing.prefix !== undefined) {
+          const p = text(invoicing.prefix, 6).toUpperCase();
+          // Letters only: the next invoice number is derived from the digits of the last one.
+          if (!/^[A-Z]{1,6}$/.test(p)) throw fail(400, "Invoice prefix must be 1 to 6 letters");
+          doc.invoicing.prefix = p;
+        }
+        if (invoicing.defaultDueDays !== undefined) doc.invoicing.defaultDueDays = int(invoicing.defaultDueDays, 0, 90, "Default due days");
+      }
+
+      if (billing) {
+        if (billing.graceDays !== undefined) doc.billing.graceDays = int(billing.graceDays, 0, 30, "Grace days");
+        if (billing.renewalLeadDays !== undefined) doc.billing.renewalLeadDays = int(billing.renewalLeadDays, 1, 30, "Renewal lead days");
+        if (billing.trialReminderDays !== undefined) doc.billing.trialReminderDays = int(billing.trialReminderDays, 1, 14, "Trial reminder days");
+      }
+
+      doc.updatedBy = req.admin._id;
+      await doc.save();
+      await refreshSettings();
+      res.json({ message: "Settings saved", settings: doc });
+    } catch (err) { send(res, err, "Failed to save settings"); }
+  },
+};
 </file>
 
 <file path="modules/admin/controllers/subscriptionController.js">
@@ -3078,6 +3338,49 @@ module.exports.PAYMENT_METHODS = PAYMENT_METHODS;
 module.exports.PAYMENT_STATUSES = PAYMENT_STATUSES;
 </file>
 
+<file path="modules/admin/models/PlatformSettings.js">
+const mongoose = require("mongoose");
+
+// Singleton: one document, key "platform".
+const schema = new mongoose.Schema(
+  {
+    key: { type: String, default: "platform", unique: true },
+    company: {
+      name: { type: String, trim: true, default: "Samsthe" },
+      supportEmail: { type: String, trim: true, lowercase: true, default: "" },
+      supportPhone: { type: String, trim: true, default: "" },
+      address: { type: String, trim: true, default: "" },
+      gstin: { type: String, trim: true, uppercase: true, default: "" },
+    },
+    invoicing: {
+      prefix: { type: String, trim: true, uppercase: true, default: "INV" }, // letters only, see controller
+      defaultDueDays: { type: Number, min: 0, max: 90, default: 7 },
+    },
+    billing: {
+      graceDays: { type: Number, min: 0, max: 30, default: 3 },          // access after a trial/period ends
+      renewalLeadDays: { type: Number, min: 1, max: 30, default: 7 },    // auto-send renewal invoice this early
+      trialReminderDays: { type: Number, min: 1, max: 14, default: 3 },  // "trial ends soon" notice
+    },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "AdminUser" },
+  },
+  { timestamps: true, collection: "platform_settings" }
+);
+
+schema.statics.get = async function () {
+  try {
+    return await this.findOneAndUpdate(
+      { key: "platform" }, { $setOnInsert: { key: "platform" } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  } catch (e) {
+    if (e.code === 11000) return this.findOne({ key: "platform" }); // two requests created it at once
+    throw e;
+  }
+};
+
+module.exports = mongoose.model("PlatformSettings", schema);
+</file>
+
 <file path="modules/admin/models/PricingPlan.js">
 const mongoose = require("mongoose");
 
@@ -3247,6 +3550,18 @@ module.exports = mongoose.model("Ticket", ticketSchema);
 module.exports.TICKET_STATUSES = TICKET_STATUSES;
 module.exports.TICKET_PRIORITIES = TICKET_PRIORITIES;
 module.exports.TICKET_CATEGORIES = TICKET_CATEGORIES;
+</file>
+
+<file path="modules/admin/routes/adminAnalyticsRoutes.js">
+const express = require("express");
+const router = express.Router();
+const { adminProtect, requireAdminPermission } = require("../middleware/adminAuthMiddleware");
+const c = require("../controllers/adminAnalyticsController");
+
+router.use(adminProtect, requireAdminPermission("VIEW_ANALYTICS"));
+router.get("/", c.getAnalytics);
+
+module.exports = router;
 </file>
 
 <file path="modules/admin/routes/adminAuthRoutes.js">
@@ -3426,6 +3741,27 @@ router.get("/", requireAdminPermission("VIEW_PROJECTS", "MANAGE_PROJECTS"), c.ge
 router.post("/", requireAdminPermission("MANAGE_PROJECTS"), c.createProject);
 router.put("/:id", requireAdminPermission("MANAGE_PROJECTS"), c.updateProject);
 router.delete("/:id", requireAdminPermission("MANAGE_PROJECTS"), c.deleteProject);
+
+module.exports = router;
+</file>
+
+<file path="modules/admin/routes/settingsRoutes.js">
+const express = require("express");
+const router = express.Router();
+const { adminProtect, requireAdminPermission } = require("../middleware/adminAuthMiddleware");
+const c = require("../controllers/settingsController");
+const { settings } = require("./settings");
+
+async function nextInvoiceNumber() {
+  const last = await Invoice.findOne({}, "invoiceNumber").sort({ createdAt: -1 }).lean();
+  const n = last ? parseInt(last.invoiceNumber.replace(/\D/g, ""), 10) || 0 : 0;
+  return `${settings().invoicing.prefix}-${String(n + 1).padStart(4, "0")}`;
+}
+
+
+router.use(adminProtect, requireAdminPermission("MANAGE_SETTINGS"));
+router.get("/", c.getSettings);
+router.put("/", c.updateSettings);
 
 module.exports = router;
 </file>
@@ -3761,6 +4097,41 @@ function generateAdminToken(adminId) {
 }
 
 module.exports = { generateAdminToken, getAdminSecret };
+</file>
+
+<file path="modules/admin/utils/settings.js">
+const PlatformSettings = require("../models/PlatformSettings");
+
+const DEFAULTS = {
+  company: {},
+  invoicing: { prefix: "INV", defaultDueDays: 7 },
+  billing: { graceDays: 3, renewalLeadDays: 7, trialReminderDays: 3 },
+};
+let current = DEFAULTS;
+
+async function refreshSettings() {
+  try {
+    const d = (await PlatformSettings.get()).toObject();
+    current = {
+      company: d.company || {},
+      invoicing: { ...DEFAULTS.invoicing, ...d.invoicing },
+      billing: { ...DEFAULTS.billing, ...d.billing },
+    };
+  } catch (e) {
+    console.error("Settings refresh failed:", e.message);
+  }
+  return current;
+}
+
+const settings = () => current;
+
+// Saves refresh the local copy instantly; other instances pick it up within a minute.
+function startSettingsRefresh() {
+  refreshSettings();
+  setInterval(refreshSettings, 60 * 1000).unref();
+}
+
+module.exports = { settings, refreshSettings, startSettingsRefresh };
 </file>
 
 <file path="modules/restaurant/controllers/tableController.js">
@@ -4339,13 +4710,14 @@ const connectDB = require("./config/db");
 const { startTableCleanupJob } = require("./modules/restaurant/jobs/tableCleanupJob")
 const { startTaskReminderJob } = require("./shared/jobs/taskReminderJob");
 const { startSubscriptionSweepJob } = require("./shared/jobs/subscriptionSweepJob");
-
+const { startSettingsRefresh } = require("./modules/admin/utils/settings");
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`Samsthe API running on http://localhost:${PORT}`);
   });
+  startSettingsRefresh();
   startTableCleanupJob();
   startTaskReminderJob();
   startSubscriptionSweepJob();
@@ -8405,7 +8777,7 @@ const Subscription = require("../../modules/admin/models/Subscription");
 const Business = require("../models/Business");
 const { sweepSubscriptions, sweepOverdue, createRenewalInvoice } = require("../../modules/admin/utils/billing");
 const { notify } = require("../services/notify");
-
+const { settings } = require("../../modules/admin/utils/settings");
 const DAY = 864e5;
 const RENEW_DAYS = 7;
 const fmt = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
@@ -8417,6 +8789,7 @@ async function tell(businessId, title, message) {
 }
 
 async function sweep() {
+  const { renewalLeadDays, trialReminderDays } = settings().billing;
   const { expiredTrials, pastDue } = await sweepSubscriptions();
   await sweepOverdue();
   const now = new Date();
@@ -8425,7 +8798,7 @@ async function sweep() {
   for (const s of pastDue) await tell(s.businessId, "Your subscription period has ended", "Pay your renewal invoice from Subscription to avoid losing access.");
 
   const ending = await Subscription.find({
-    status: "TRIAL", trialEndsAt: { $gte: now, $lte: new Date(now.getTime() + 3 * DAY) }, trialReminderSentAt: null,
+    status: "TRIAL", trialEndsAt: { $gte: now, $lte: new Date(now.getTime() + trialReminderDays * DAY) }, trialReminderSentAt: null,
   }).limit(200);
   for (const s of ending) {
     s.trialReminderSentAt = now;
@@ -8436,7 +8809,7 @@ async function sweep() {
   // Auto-send renewal invoices. createRenewalInvoice skips if one is already open, so this is safe to repeat.
   const renewing = await Subscription.find({
     status: { $in: ["ACTIVE", "PAST_DUE"] }, amount: { $gt: 0 },
-    currentPeriodEnd: { $lte: new Date(now.getTime() + RENEW_DAYS * DAY) },
+    currentPeriodEnd: { $lte: new Date(now.getTime() + renewalLeadDays * DAY) },
   }).limit(200);
   for (const s of renewing) {
     const { invoice } = await createRenewalInvoice(s, undefined, "sent");
@@ -8584,8 +8957,10 @@ module.exports = { requirePermission, scopeToOutletAccess, resolveOutletFilter, 
 const Subscription = require("../../modules/admin/models/Subscription");
 const Outlet = require("../models/Outlet");
 const User = require("../models/User");
-const GRACE_DAYS = 3; // days of leeway after a trial or period ends
+
 const NEEDS_PLAN_STATUSES = ["PENDING", "EXPIRED", "CANCELLED"];
+const { settings } = require("../../modules/admin/utils/settings");
+const graceDays = () => settings().billing.graceDays;
 
 const getSub = (businessId) =>
   Subscription.findOne({ businessId }, "status limits trialEndsAt currentPeriodEnd planId")
@@ -8651,7 +9026,7 @@ function isLapsed(sub) {
   if (!sub) return false;
   if (["CANCELLED", "SUSPENDED"].includes(sub.status)) return true;
   const end = sub.status === "TRIAL" ? sub.trialEndsAt || sub.currentPeriodEnd : sub.currentPeriodEnd;
-  return !!end && Date.now() > new Date(end).getTime() + GRACE_DAYS * 864e5;
+  return !!end && Date.now() > new Date(end).getTime() + graceDays() * 864e5;
 }
 
 async function requireActiveSubscription(req, res, next) {
