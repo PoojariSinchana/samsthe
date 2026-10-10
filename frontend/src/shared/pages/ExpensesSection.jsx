@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
-import * as entriesApi from "../../../shared/api/entriesApi";
-import { todayStr, startOfLocalDay, endOfLocalDay } from "../../../shared/utils/dateRange";
-import StatCard from "../../../shared/components/StatCard";
+import * as expensesApi from "../api/expensesApi";
+import { fetchStaff } from "../api/Staffapi";
+import { todayStr, startOfLocalDay, endOfLocalDay } from "../utils/dateRange";
+import StatCard from "../components/StatCard";
 
 const inputCls = "w-full rounded-sm border border-charcoal-lighter bg-charcoal-light px-3 py-2.5 text-cream outline-none focus:border-saffron";
 const labelCls = "mb-1 block text-xs text-muted";
@@ -21,19 +22,22 @@ export default function ExpensesSection() {
   const [adding, setAdding] = useState(false);
 
   const categories = meta.categoriesByType.EXPENSE || [];
+  // "credit" would book the expense as an unpaid supplier bill, which has no
+  // pay-off screen here, so it is hidden to avoid confusion.
+  const methods = (meta.paymentMethods || []).filter((m) => m !== "credit");
 
-  useEffect(() => { entriesApi.getMeta().then(setMeta).catch(() => {}); }, []);
+  useEffect(() => { expensesApi.getMeta().then(setMeta).catch(() => {}); }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const params = { entryType: "EXPENSE", page: 1, limit: LIMIT };
+      const params = { page: 1, limit: LIMIT };
       if (category) params.category = category;
       if (from) params.from = startOfLocalDay(from);
       if (to) params.to = endOfLocalDay(to);
-      const data = await entriesApi.getEntries(params);
-      setEntries(data.entries.filter((e) => e.status !== "cancelled"));
+      const data = await expensesApi.getEntries(params);
+      setEntries(data.entries.filter((e) => e.status !== "CANCELLED"));
       setTotal(data.total);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load expenses");
@@ -46,7 +50,7 @@ export default function ExpensesSection() {
 
   async function handleCancel(id) {
     if (!window.confirm("Cancel this expense? It will be reversed in Accounting.")) return;
-    try { await entriesApi.cancelEntry(id); load(); }
+    try { await expensesApi.cancelEntry(id); load(); }
     catch (err) { setError(err.response?.data?.message || "Failed to cancel the expense"); }
   }
 
@@ -55,13 +59,14 @@ export default function ExpensesSection() {
     entries.reduce((acc, e) => ({ ...acc, [e.category]: (acc[e.category] || 0) + e.amount }), {})
   ).sort((a, b) => b[1] - a[1]);
   const max = byCategory[0]?.[1] || 1;
+  const filtered = !!(from || to || category);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-cream sm:text-3xl">Expenses</h1>
-          <p className="mt-1 text-sm text-muted">Rent, utilities, wages and everything else you pay out.</p>
+          <p className="mt-1 text-sm text-muted">Rent, salaries, electricity and everything else you pay out. Recording them keeps your profit accurate.</p>
         </div>
         <button onClick={() => setAdding(true)} className="rounded-sm bg-saffron px-4 py-2 text-sm font-medium text-charcoal hover:bg-saffron-dark">Add expense</button>
       </div>
@@ -78,7 +83,7 @@ export default function ExpensesSection() {
               {categories.map((c) => <option key={c} value={c}>{human(c)}</option>)}
             </select>
           </div>
-          {(from || to || category) && (
+          {filtered && (
             <button onClick={() => { setFrom(""); setTo(""); setCategory(""); }} className="col-span-2 pb-2 text-left text-sm text-muted hover:text-cream sm:col-span-1">Clear filters</button>
           )}
         </div>
@@ -112,8 +117,18 @@ export default function ExpensesSection() {
       <div className="receipt-card relative overflow-x-auto rounded-sm">
         <span className="receipt-notch left-6" />
         {loading ? <p className="p-8 text-center text-sm text-muted">Loading…</p>
-        : entries.length === 0 ? <p className="p-8 text-center text-sm text-muted">No expenses recorded for these filters.</p>
-        : (
+        : entries.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-muted">
+              {filtered
+                ? "No expenses match these filters."
+                : "No expenses yet. Add rent, salaries, electricity and other costs so your profit is accurate."}
+            </p>
+            {!filtered && (
+              <button onClick={() => setAdding(true)} className="mt-3 text-sm font-medium text-saffron hover:underline">Add your first expense</button>
+            )}
+          </div>
+        ) : (
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-charcoal-lighter text-xs text-muted">
@@ -141,27 +156,42 @@ export default function ExpensesSection() {
         )}
       </div>
 
-      {adding && <ExpenseModal meta={meta} categories={categories} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} />}
+      {adding && <ExpenseModal methods={methods} categories={categories} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} />}
     </div>
   );
 }
 
-function ExpenseModal({ meta, categories, onClose, onSaved }) {
+function ExpenseModal({ methods, categories, onClose, onSaved }) {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [date, setDate] = useState(todayStr());
   const [notes, setNotes] = useState("");
+  const [staff, setStaff] = useState([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Load staff only when the person picks Salary.
+  useEffect(() => {
+    if (category !== "SALARY" || staff.length > 0) return;
+    fetchStaff({ status: "Active" }).then(({ data }) => setStaff(data)).catch(() => {});
+  }, [category, staff.length]);
+
+  function pickStaff(id) {
+    const s = staff.find((x) => x._id === id);
+    if (!s) return;
+    setDescription(`Salary: ${s.fullName}`);
+    if (s.salary) setAmount(String(s.salary));
+  }
 
   async function submit(e) {
     e.preventDefault();
     setError("");
+    if (!category) return setError("Choose what the expense was for.");
     setSaving(true);
     try {
-      await entriesApi.createEntry({
+      await expensesApi.createEntry({
         entryType: "EXPENSE", category,
         description: description.trim() || human(category),
         amount, paymentMethod, date, notes,
@@ -183,21 +213,42 @@ function ExpenseModal({ meta, categories, onClose, onSaved }) {
         </div>
         {error && <p role="alert" className="mt-2 text-sm text-brick">{error}</p>}
         <div className="mt-4 space-y-3">
-          <div><label className={labelCls}>Category *</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)} required className={inputCls}>
-              <option value="">Select…</option>
-              {categories.map((c) => <option key={c} value={c}>{human(c)}</option>)}
-            </select></div>
-          <div><label className={labelCls}>Description</label><input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. September rent" className={inputCls} /></div>
+          <div>
+            <label className={labelCls}>What was it for? *</label>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((c) => (
+                <button type="button" key={c} onClick={() => setCategory(c)} aria-pressed={category === c}
+                  className={`rounded-sm border px-3 py-1.5 text-sm ${category === c ? "border-saffron bg-saffron/10 text-saffron" : "border-charcoal-lighter text-muted hover:text-cream"}`}>
+                  {human(c)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {category === "SALARY" && (
+            <div>
+              <label className={labelCls}>Staff member</label>
+              <select className={inputCls} defaultValue="" onChange={(e) => pickStaff(e.target.value)}>
+                <option value="">Select…</option>
+                {staff.map((s) => <option key={s._id} value={s._id}>{s.fullName}{s.salary ? ` · ${rupees(s.salary)}` : ""}</option>)}
+              </select>
+              <p className="mt-1 text-xs text-muted">Fills in the name and monthly salary. You can still change the amount.</p>
+            </div>
+          )}
+
+          <div><label className={labelCls}>Description</label>
+            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. September shop rent" className={inputCls} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Amount (₹) *</label><input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className={inputCls} /></div>
+            <div><label className={labelCls}>Amount (₹) *</label>
+              <input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className={inputCls} /></div>
             <div><label className={labelCls}>Paid through</label>
               <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className={inputCls}>
-                {meta.paymentMethods.map((m) => <option key={m} value={m}>{human(m)}</option>)}
+                {methods.map((m) => <option key={m} value={m}>{human(m)}</option>)}
               </select></div>
           </div>
+          <p className="-mt-1 text-xs text-muted">Where the money came from: cash drawer, bank, UPI or card.</p>
           <div><label className={labelCls}>Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} /></div>
-          <div><label className={labelCls}>Notes</label><input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls} /></div>
+          <div><label className={labelCls}>Notes (optional)</label><input value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls} /></div>
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-sm border border-charcoal-lighter px-4 py-2 text-cream hover:border-saffron">Cancel</button>

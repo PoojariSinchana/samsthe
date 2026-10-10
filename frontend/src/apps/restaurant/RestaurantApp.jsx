@@ -13,7 +13,7 @@ import TablesSection from "./pages/TablesSection";
 import PeopleSection from "./pages/people/PeopleSection";
 import BillingSection from "./pages/BillingSection";
 import PurchasesSection from "./pages/PurchasesSection";
-import ExpensesSection from "./pages/ExpensesSection";
+import ExpensesSection from "../../shared/pages/ExpensesSection";
 import AccountingSection from "../../shared/pages/AccountingSection";
 import ReportsSection from "./pages/ReportsSection";
 import AnalyticsSection from "../../shared/pages/AnalyticsSection";

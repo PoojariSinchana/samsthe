@@ -46,6 +46,7 @@ const reportsRoutes = require("./shared/routes/reportsroutes");
 const analyticsRoutes = require("./shared/routes/analyticsroutes");
 const taskRoutes = require("./shared/routes/taskRoutes");
 const notificationRoutes = require("./shared/routes/notificationRoutes");
+const expensesRoutes = require("./shared/routes/expensesRoutes");
 
 const { protect } = require("./shared/middleware/authMiddleware");
 const { requireActiveSubscription } = require("./shared/middleware/planLimits");
@@ -150,6 +151,7 @@ app.use("/api/analytics",...gated, analyticsRoutes);
 app.use("/api/tables",...gated, tableRoutes);           // restaurant only
 app.use("/api/tasks",...gated, taskRoutes);
 app.use("/api/notifications",notificationRoutes);
+app.use("/api/expenses", ...gated, expensesRoutes);
 
 // ===== FRONTEND (production) =====
 if (isProduction) {

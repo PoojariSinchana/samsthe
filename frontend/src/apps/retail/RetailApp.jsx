@@ -26,6 +26,8 @@ import CalculatorSection from "../../shared/pages/CalculatorSection";
 import DashboardHeader from "../../shared/components/DashboardHeader";
 import SubscriptionSection from "../../shared/pages/SubscriptionSection";
 import SupportSection from "../../shared/pages/SupportSection";
+import ExpensesSection from "../../shared/pages/ExpensesSection";
+
 
 const PERIOD_TITLE = { today: "today", week: "the last 7 days", month: "this month", year: "this year" };
 const PERIOD_OPTIONS = [
@@ -128,6 +130,7 @@ useEffect(() => {
             {section === "products" && <ProductsSection onNavigate={setSection} />}
             {section === "stock" && <StockSection />}
             {section === "purchases" && <PurchasesSection />}
+            {section === "expenses" && <ExpensesSection />}
             {section === "reports" && <ShopReportsSection />}
             {section === "analytics" && <ShopAnalyticsSection />}
             {section === "pos" && <ShopPosSection onNavigate={setSection} />}

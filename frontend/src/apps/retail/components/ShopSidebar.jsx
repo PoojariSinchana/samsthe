@@ -4,6 +4,7 @@ import { useTheme } from "../../../shared/context/ThemeContext";
 import { usePlan } from "../../../shared/context/PlanContext";
 import Logo from "../../../shared/components/Logo";
 import NotificationBell from "../../../shared/components/NotificationBell";
+import { Wallet } from "lucide-react";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
   { label: "Products", key: "products", roles: ["owner", "manager"], icon: Package },
   { label: "Stock", key: "stock", roles: ["owner", "manager"], icon: Boxes },
   { label: "Purchases", key: "purchases", feature: "purchases", roles: ["owner", "manager"], icon: Truck },
+  { label: "Expenses", key: "expenses", roles: ["owner", "manager"], icon: Wallet },
   { label: "People", key: "people", roles: ["owner", "manager"], icon: Users },
   { label: "Tasks", key: "tasks", roles: null, icon: ListChecks },
   { label: "Calculator", key: "calculator", roles: null, icon: Percent },
@@ -51,7 +53,7 @@ const NAV_ITEMS = [
   { label: "Help & Support", key: "support", roles: null, icon: LifeBuoy },
 ];
 
-const BOTTOM_KEYS = ["dashboard", "pos", "products", "stock"];
+const BOTTOM_KEYS = ["dashboard", "pos", "products", "stock", "expenses"];
 
 export default function ShopSidebar({ active, onNavigate, restaurant, onOpenProfile, badges = {}, mobileOpen = false, onMobileOpen, onMobileClose }) {
   const { user, logout } = useAuth();
