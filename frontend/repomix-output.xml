@@ -157,7 +157,6 @@ src/shared/api/axios.js
 src/shared/api/customersApi.js
 src/shared/api/dashboardAdapter.js
 src/shared/api/entriesApi.js
-src/shared/api/menuApi.js
 src/shared/api/normalize.js
 src/shared/api/notificationsApi.js
 src/shared/api/outlets.js
@@ -517,11 +516,11 @@ export default {
 
 <file path="public/manifest-restaurant.webmanifest">
 {
-  "id": "/app/restaurant",
+  "id": "/app/restaurant/app",
   "name": "Samsthe Restaurant Manager",
   "short_name": "Restaurant",
-  "start_url": "/app/restaurant",
-  "scope": "/",
+  "start_url": "/app/restaurant/app",
+  "scope": "/restaurant/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
@@ -535,11 +534,11 @@ export default {
 
 <file path="public/manifest-retail.webmanifest">
 {
-  "id": "/app/retail",
+  "id": "/app/retail/app",
   "name": "Samsthe Retail Shop",
   "short_name": "Shop",
-  "start_url": "/app/retail",
-  "scope": "/",
+  "start_url": "/app/retail/app",
+  "scope": "/retail/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
@@ -4948,66 +4947,52 @@ import AdminApp from "./admin/AdminApp";
 import AdminProtectedRoute from "./admin/components/AdminProtectedRoute";
 import ChoosePlan from "./marketing/ChoosePlan";
 import ManifestSwitcher from "./shared/components/ManifestSwitcher";
+
 export default function App() {
   return (
-     <>
+    <>
       <ManifestSwitcher />
       <Routes>
+        {/* Admin portal */}
+        <Route path="/admin" element={<AdminRoot />}>
+          <Route path="login" element={<AdminLogin />} />
+          <Route index element={<AdminProtectedRoute><AdminApp /></AdminProtectedRoute>} />
+        </Route>
 
-      <Route path="/admin" element={<AdminRoot />}>
-        <Route path="login" element={<AdminLogin />} />
-        <Route index element={<AdminProtectedRoute><AdminApp /></AdminProtectedRoute>} />
-      </Route>
+        {/* Company site: NOT part of the installable apps */}
+        <Route path="/" element={<Home />} />
+        <Route path="/products/restaurant" element={<Landing />} />
+        <Route path="/products/retail" element={<RetailLanding />} />
 
-      {/* Company site */}
-      <Route path="/" element={<Home />} />
-      <Route path="/products/restaurant" element={<Landing />} />
-      <Route path="/products/retail" element={<RetailLanding />} />
+        {/* Bare /restaurant and /retail go to the marketing pages */}
+        <Route path="/restaurant" element={<Navigate to="/products/restaurant" replace />} />
+        <Route path="/retail" element={<Navigate to="/products/retail" replace />} />
 
-      {/* Old marketing path — kept working for anyone with it bookmarked */}
-      <Route path="/restaurant" element={<Navigate to="/products/restaurant" replace />} />
-      <Route path="/choose-plan" element={<ProtectedRoute><ChoosePlan /></ProtectedRoute>} />
-      
-      <Route path="/restaurant/login" element={<RestaurantLogin />} />
-      <Route path="/retail/login" element={<RetailLogin />} />
-      <Route path="/restaurant/signup" element={<CreateRestaurantAccount />} />
-      <Route path="/retail/signup" element={<CreateRetailAccount />} />
+        {/* ===== Restaurant app (installable, scope: /restaurant/) ===== */}
+        <Route path="/restaurant/login" element={<RestaurantLogin />} />
+        <Route path="/restaurant/signup" element={<CreateRestaurantAccount />} />
+        <Route path="/restaurant/setup" element={<ProtectedRoute><RestaurantSetup /></ProtectedRoute>} />
+        <Route path="/restaurant/plan" element={<ProtectedRoute><ChoosePlan /></ProtectedRoute>} />
+        <Route path="/restaurant/app" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
-      {/* Canonical app paths */}
-      <Route
-        path="/app/restaurant"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      {/* Old dashboard path — redirect so nothing breaks */}
-      <Route path="/dashboard" element={<Navigate to="/app/restaurant" replace />} />
+        {/* ===== Retail app (installable, scope: /retail/) ===== */}
+        <Route path="/retail/login" element={<RetailLogin />} />
+        <Route path="/retail/signup" element={<CreateRetailAccount />} />
+        <Route path="/retail/setup" element={<ProtectedRoute><RestaurantSetup /></ProtectedRoute>} />
+        <Route path="/retail/plan" element={<ProtectedRoute><ChoosePlan /></ProtectedRoute>} />
+        <Route path="/retail/app" element={<ProtectedRoute><ShopDashboard /></ProtectedRoute>} />
 
-      <Route
-        path="/restaurant-setup"
-        element={
-          <ProtectedRoute>
-            <RestaurantSetup />
-          </ProtectedRoute>
-        }
-      />
+        {/* Old URLs: redirect so bookmarks and old links don't break */}
+        <Route path="/app/restaurant" element={<Navigate to="/restaurant/app" replace />} />
+        <Route path="/app/retail" element={<Navigate to="/retail/app" replace />} />
+        <Route path="/dashboard" element={<Navigate to="/restaurant/app" replace />} />
+        <Route path="/shop" element={<Navigate to="/retail/app" replace />} />
+        <Route path="/restaurant-setup" element={<Navigate to="/restaurant/setup" replace />} />
+        <Route path="/choose-plan" element={<Navigate to="/restaurant/plan" replace />} />
 
-      <Route
-        path="/app/retail"
-        element={
-          <ProtectedRoute>
-            <ShopDashboard />
-          </ProtectedRoute>
-        }
-      />
-      {/* Old shop path — redirect so nothing breaks */}
-      <Route path="/shop" element={<Navigate to="/app/retail" replace />} />
-
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  </>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
   );
 }
 </file>
@@ -9769,7 +9754,7 @@ export default function ProductFormModal({ categories, brands, initialProduct, o
               <ImageUploadField
                 label="Add an image"
                 value=""
-                uploadUrl="/products/upload-image"
+                uploadUrl="/catalog/items/upload-image"
                 formFieldName="image"
                 shape="square"
                 onUploaded={addImage}
@@ -12254,7 +12239,7 @@ export default function ChoosePlan() {
 
   const preselect = params.get("plan");
   const isOwner = user?.role === "owner";
-  const dest = `/app/${business?.appType || "restaurant"}`;
+  const dest = `/${business?.appType || "restaurant"}/app`;
 
   useEffect(() => {
     api.get("/business/me/plans").then(({ data }) => setData(data))
@@ -12413,7 +12398,7 @@ export default function CreateAccountForm({ appType }) {
     try {
       const { data } = await api.post("/auth/register", { ...form, appType });
       loginSuccess(data);
-      navigate(`/restaurant-setup${plan ? `?plan=${plan}` : ""}`);
+      navigate(`/${appType}/setup${plan ? `?plan=${plan}` : ""}`);
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
@@ -12428,7 +12413,9 @@ export default function CreateAccountForm({ appType }) {
       <div className="w-full max-w-2xl">
         <header className="flex items-center justify-between border-b border-charcoal-lighter bg-charcoal-light px-4 py-3">
           <Logo compact />
-          <Link to="/" className="text-sm text-muted hover:text-cream">← Website</Link>
+          {!window.matchMedia("(display-mode: standalone)").matches && (
+            <Link to="/" className="text-sm text-muted hover:text-cream">← Website</Link>
+          )}
         </header>
 
         <div className="receipt-card rounded-sm px-6 pb-8 pt-10 sm:px-10">
@@ -12837,7 +12824,7 @@ export default function LoginForm({ appType }) {
       }
 
       loginSuccess(data);
-      navigate(data.business?.appType === "retail" ? "/app/retail" : "/app/restaurant");
+      navigate(data.business?.appType === "retail" ? "/retail/app" : "/restaurant/app");
     } catch (err) {
       const body = err.response?.data;
       if (body?.code === "NO_BUSINESS_FOR_APP") {
@@ -12891,7 +12878,9 @@ export default function LoginForm({ appType }) {
       <div className="w-full max-w-sm">
         <header className="flex items-center justify-between border-b border-charcoal-lighter bg-charcoal-light px-4 py-3">
           <Logo compact />
-          <Link to="/" className="text-sm text-muted hover:text-cream">← Website</Link>
+          {!window.matchMedia("(display-mode: standalone)").matches && (
+            <Link to="/" className="text-sm text-muted hover:text-cream">← Website</Link>
+          )}
         </header>
 
         <div className="receipt-card rounded-sm px-6 pb-8 pt-10 sm:px-8">
@@ -13175,10 +13164,10 @@ export default function RestaurantSetup() {
   const navigate = useNavigate();
   const { updateRestaurantInfo, restaurant } = useAuth();
   const isRetail = restaurant?.appType === "retail";
-  const dest = isRetail ? "/app/retail" : "/app/restaurant";
+  const dest = isRetail ? "/retail/app" : "/restaurant/app";
   const [params] = useSearchParams();
   const plan = params.get("plan");
-  const next = `/choose-plan${plan ? `?plan=${plan}` : ""}`;
+  const next = `/${isRetail ? "retail" : "restaurant"}/plan${plan ? `?plan=${plan}` : ""}`;
 
   const BUSINESS_TYPES = isRetail ? RETAIL_BUSINESS_TYPES : RESTAURANT_BUSINESS_TYPES;
 
@@ -13413,9 +13402,8 @@ export const staffLogin = (data) => api.post("/auth/staff-login", data).then((re
 <file path="src/shared/api/axios.js">
 import axios from "axios";
 
-// No more "/restaurant/api" gateway prefix — the frontend is served by the
-// same backend now (or proxied to it in dev, see vite.config.js), so
-// everything just lives under /api.
+// The frontend is served by the same backend (or proxied to it in dev, see
+// vite.config.js), so everything just lives under /api.
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
 });
@@ -13430,15 +13418,28 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     const d = err.response?.data;
+    const path = window.location.pathname;
+
+    // No plan yet: send the user to their own app's plan page (inside the installed app's scope)
     if (
-      err.response?.status === 402 && d?.code === "PLAN_REQUIRED" &&
-      !["/choose-plan", "/restaurant-setup"].includes(window.location.pathname)
+      err.response?.status === 402 &&
+      d?.code === "PLAN_REQUIRED" &&
+      !/\/(plan|setup)$/.test(path)
     ) {
-      window.location.assign("/choose-plan");
+      const app = path.startsWith("/retail/") ? "retail" : "restaurant";
+      window.location.assign(`/${app}/plan`);
       return new Promise(() => {}); // page is navigating away
     }
-    if ([403, 402].includes(err.response?.status) && ["FEATURE_LOCKED", "PLAN_LIMIT", "SUBSCRIPTION_LAPSED"].includes(d?.code)) {
-      window.dispatchEvent(new CustomEvent("plan:locked", { detail: { feature: d.feature, message: d.message, code: d.code } }));
+
+    if (
+      [403, 402].includes(err.response?.status) &&
+      ["FEATURE_LOCKED", "PLAN_LIMIT", "SUBSCRIPTION_LAPSED"].includes(d?.code)
+    ) {
+      window.dispatchEvent(
+        new CustomEvent("plan:locked", {
+          detail: { feature: d.feature, message: d.message, code: d.code },
+        })
+      );
     }
     return Promise.reject(err);
   }
@@ -13525,36 +13526,6 @@ export const transcribeVoice = (blob) => {
   formData.append("audio", blob, "recording.webm");
   return api.post("/entries/smart/transcribe", formData).then((res) => res.data);
 };
-</file>
-
-<file path="src/shared/api/menuApi.js">
-import api from "../../../shared/api/axios";
-import { pickList, pickOne } from "../../../shared/api/normalize";
-
-const T = "menu";
-
-export const getCategories = () =>
-  api.get("/catalog/categories", { params: { kind: T } }).then((r) => pickList(r.data, "categories"));
-export const createCategory = (data) =>
-  api.post("/catalog/categories", { ...data, kind: T }).then((r) => pickOne(r.data, "category"));
-export const updateCategory = (id, data) =>
-  api.put(`/catalog/categories/${id}`, data).then((r) => pickOne(r.data, "category"));
-export const deleteCategory = (id) => api.delete(`/catalog/categories/${id}`).then((r) => r.data);
-
-export const getItems = (params) =>
-  api.get("/catalog/items", { params: { ...params, type: T } }).then((r) => pickList(r.data, "items"));
-export const getItemById = (id) => api.get(`/catalog/items/${id}`).then((r) => pickOne(r.data, "item"));
-export const createItem = (data) =>
-  api.post("/catalog/items", { ...data, type: T }).then((r) => pickOne(r.data, "item"));
-export const updateItem = (id, data) =>
-  api.put(`/catalog/items/${id}`, data).then((r) => pickOne(r.data, "item"));
-export const toggleAvailability = (id) =>
-  api.patch(`/catalog/items/${id}/availability`).then((r) => pickOne(r.data, "item"));
-export const deleteItem = (id) => api.delete(`/catalog/items/${id}`).then((r) => r.data);
-
-export const addAddOn = (itemId, data) => api.post(`/catalog/items/${itemId}/addons`, data).then((r) => r.data);
-export const removeAddOn = (itemId, addOnId) =>
-  api.delete(`/catalog/items/${itemId}/addons/${addOnId}`).then((r) => r.data);
 </file>
 
 <file path="src/shared/api/normalize.js">
@@ -14073,21 +14044,15 @@ export default function Logo({ compact = false, className = "", imgClassName }) 
 <file path="src/shared/components/ManifestSwitcher.jsx">
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { setAppManifest } from "../context/InstallContext";
 
 export default function ManifestSwitcher() {
   const { pathname } = useLocation();
-  const { business } = useAuth();
-
   useEffect(() => {
-    let app = null;
-    if (pathname === "/choose-plan" || pathname === "/restaurant-setup") app = business?.appType || null;
-    else if (/^\/(app\/)?retail(\/|$)/.test(pathname)) app = "retail";
-    else if (/^\/(app\/)?restaurant(\/|$)/.test(pathname)) app = "restaurant";
-    setAppManifest(app);
-  }, [pathname, business?.appType]);
-
+    const app = pathname.startsWith("/retail/") ? "retail"
+      : pathname.startsWith("/restaurant/") ? "restaurant" : null;
+    setAppManifest(app); // landing/home -> no manifest -> no app install
+  }, [pathname]);
   return null;
 }
 </file>
@@ -14422,21 +14387,18 @@ export default function ProtectedRoute({ children }) {
   const { user, business, loading } = useAuth();
   const { info, loaded } = usePlan();
   const { pathname } = useLocation();
+  const app = pathname.startsWith("/retail/") ? "retail" : "restaurant";
 
   if (loading || (user && !loaded)) {
     return <div className="flex h-screen items-center justify-center bg-charcoal text-muted">Loading…</div>;
   }
-  if (!user) {
-    return <Navigate to={pathname.startsWith("/app/retail") ? "/retail/login" : "/restaurant/login"} replace />;
+  if (!user) return <Navigate to={`/${app}/login`} replace />;
+
+  const own = business?.appType || app;
+  if (info?.needsPlan && !pathname.endsWith("/plan") && !pathname.endsWith("/setup")) {
+    return <Navigate to={`/${own}/plan`} replace />;
   }
-  // No plan chosen yet (or invoice unpaid): the only page allowed is plan selection.
-  if (info?.needsPlan && pathname !== "/choose-plan" && pathname !== "/restaurant-setup") {
-  return <Navigate to="/choose-plan" replace />;
-}
-  const wanted = pathname.startsWith("/app/retail") ? "retail" : pathname.startsWith("/app/restaurant") ? "restaurant" : null;
-  if (wanted && business?.appType && business.appType !== wanted) {
-    return <Navigate to={`/app/${business.appType}`} replace />;
-  }
+  if (own !== app) return <Navigate to={`/${own}/app`} replace />;
   return children;
 }
 </file>
@@ -18300,7 +18262,8 @@ function PasswordField({ label, name, value, onChange }) {
 }
 
 function DangerZoneCard() {
-  const { logout } = useAuth();
+  
+  const { logout, restaurant } = useAuth();
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState("");
@@ -18314,7 +18277,7 @@ function DangerZoneCard() {
     try {
       await api.delete("/auth/account", { data: { password } });
       logout();
-      navigate("/");
+      navigate(`/${restaurant?.appType || "restaurant"}/login`);
     } catch (err) {
       setError(err.response?.data?.message || "Couldn't delete account.");
     } finally {
@@ -18404,6 +18367,7 @@ import api from "../api/axios";
 import { usePlan } from "../context/PlanContext";
 import { FEATURE_LABELS } from "../constants/features";
 import PayByUpi from "../../marketing/PayByUpi";
+import { useAuth } from "../context/AuthContext";
 
 const rupees = (n) => `₹${Math.round(n || 0).toLocaleString("en-IN")}`;
 const dateStr = (d) => (d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—");
@@ -18418,6 +18382,7 @@ const STATUS_STYLE = {
 const daysLeft = (d) => (d ? Math.ceil((new Date(d) - Date.now()) / 864e5) : null);
 
 export default function SubscriptionSection() {
+  const { business } = useAuth();
   const { refresh: refreshPlan } = usePlan();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -18457,7 +18422,7 @@ export default function SubscriptionSection() {
   const { subscription: sub, usage, openInvoice, invoices, payments, plans } = data;
   if (!sub) return (
     <div className="receipt-card max-w-md rounded-sm p-8 text-center text-sm text-muted">
-      You don't have a plan yet. <a href="/choose-plan" className="text-saffron hover:underline">Choose one</a>.
+      You don't have a plan yet. <a href={`/${business?.appType || "restaurant"}/plan`} className="text-saffron hover:underline">Choose one</a>.
     </div>
   );
 

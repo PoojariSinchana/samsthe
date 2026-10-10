@@ -140,9 +140,9 @@ function requireFeature(...keys) {
 function needsPlan(sub) {
   if (!sub) return true;
   if (NEEDS_PLAN_STATUSES.includes(sub.status)) return true;
-  if (sub.status === "SUSPENDED") return false; // suspended by an admin: choosing a plan won't fix it
+  if (sub.status === "SUSPENDED") return false;
   const end = sub.status === "TRIAL" ? sub.trialEndsAt || sub.currentPeriodEnd : sub.currentPeriodEnd;
-  return !!end && Date.now() > new Date(end).getTime() + GRACE_DAYS * 864e5;
+  return !!end && Date.now() > new Date(end).getTime() + graceDays() * 864e5;
 }
 
 module.exports = {
